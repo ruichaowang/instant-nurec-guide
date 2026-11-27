@@ -1,0 +1,47 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>多相机自由视角</title>
+<style>body{max-width:1024px;margin:auto;background:#182025;color:#fff;font:16px system-ui}img{width:100%}label,button{display:inline-block;margin:6px}input{vertical-align:middle}</style>
+<h1>多相机自由视角</h1><img id="picture" alt="虚拟视角与同步的五路相机输入">
+<p>下排从左到右为前广角、左侧、右侧、左后、右后。</p>
+<button id="play">播放</button><label>时间窗 <input id="frame" type="range" min="0" max="FRAME_MAX" value="0"></label>
+<label>环绕角 ° <input id="yaw" type="number" value="INITIAL_YAW"></label>
+<label>俯角 ° <input id="pitch" type="number" value="INITIAL_PITCH"></label>
+<label>高度 m <input id="height" type="number" step=".1" value="INITIAL_HEIGHT"></label>
+<label>后移 m <input id="rear" type="number" step=".1" value="INITIAL_REAR"></label>
+<label><input id="fix" type="checkbox" DIFIX_DISABLED>Difix</label><output id="status"></output>
+<script>
+const get = id => document.getElementById(id);
+let playing=false, busy=false, dirty=false, lastUrl;
+async function update(){
+  dirty=true;
+  if(busy) return;
+  busy=true;
+  try {
+    while(dirty){
+      dirty=false;
+      const q=new URLSearchParams();
+      for(const id of ['frame','yaw','pitch','height','rear']) q.set(id,get(id).value);
+      q.set('fix',get('fix').checked?'1':'0');
+      const start=performance.now();
+      const response=await fetch('/view?'+q);
+      if(!response.ok) throw Error('请求失败 '+response.status);
+      const next=URL.createObjectURL(await response.blob());
+      if(dirty){URL.revokeObjectURL(next);continue}
+      get('picture').src=next;await get('picture').decode();
+      if(lastUrl)URL.revokeObjectURL(lastUrl);lastUrl=next;
+      get('status').textContent='窗口 '+q.get('frame')+' · '+Math.round(performance.now()-start)+' ms';
+      if(playing && !dirty){
+        const slider=get('frame');slider.value=(Number(slider.value)+1)%(Number(slider.max)+1);
+        dirty=true;
+      }
+    }
+  } catch(error){playing=false;get('play').textContent='播放';get('status').textContent=error.message}
+  finally{busy=false}
+}
+get('play').disabled=Number(get('frame').max)===0;
+get('play').onclick=()=>{playing=!playing;get('play').textContent=playing?'暂停':'播放';if(playing)update()};
+document.querySelectorAll('input').forEach(el=>el.onchange=update);
+document.querySelectorAll('input[type=number]').forEach(el=>el.onkeydown=event=>{
+  if(event.key==='Enter'){event.preventDefault();update()}
+});
+update();
+</script></html>

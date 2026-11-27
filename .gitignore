@@ -1,0 +1,8 @@
+__pycache__/
+output/
+demo_clip/
+demo_output/
+*.pth
+*.safetensors
+.DS_Store
+*.mp4
